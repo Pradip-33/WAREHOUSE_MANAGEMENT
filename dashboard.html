@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shivam Distributors - Dashboard</title>
+  
+  <script>
+    if (!localStorage.getItem('shivOmkarRole') || !localStorage.getItem('shivOmkarUserId')) {
+      window.location.replace('index.html');
+    }
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* MASTER RESET & TYPOGRAPHY */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body { display: flex; flex-direction: row; background-color: #f1f5f9; height: 100vh; color: #334155; transition: background-color 0.3s, color 0.3s; overflow: hidden; }
+    
+    /* SIDEBAR (DESKTOP DEFAULT LAYOUT) */
+    .sidebar { width: 260px; background: #0f172a; color: #94a3b8; display: flex; flex-direction: column; flex-shrink: 0; box-shadow: 4px 0 15px rgba(0,0,0,0.05); z-index: 10; overflow-y: auto; }
+    .sidebar h2 { text-align: center; padding: 24px 0; background-color: #020617; letter-spacing: 0.5px; font-size: 20px; font-weight: 700; color: #f8fafc; border-bottom: 1px solid #1e293b; }
+    .menu-container { display: flex; flex-direction: column; flex: 1; }
+    .menu-item { padding: 16px 24px; text-decoration: none; border-bottom: 1px solid #1e293b; transition: all 0.2s ease; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+    .menu-item:hover { background-color: #1e293b; color: #f8fafc; }
+    .menu-item.active { background-color: #1e293b; color: #ffffff; border-left: 4px solid #3b82f6; }
+    
+    /* MAIN CONTENT VIEWPORTS */
+    .main-content { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; overflow-x: hidden; position: relative; width: 100%; }
+    .header { background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: background-color 0.3s, border-color 0.3s; gap: 16px; flex-wrap: wrap; }
+    .search-bar input { padding: 10px 16px; width: 340px; max-width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; font-size: 14px; background-color: #f8fafc; transition: all 0.2s ease; color: #334155;}
+    .search-bar input:focus { border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+    
+    .dashboard-section { padding: 32px; display: none; width: 100%; max-width: 100%; } 
+    .dashboard-section.active { display: block; animation: slideIn 0.3s ease-out; } 
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* COUNTER CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 32px; }
+    .stat-card { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0; border-top: 4px solid #3b82f6; transition: transform 0.2s ease, background-color 0.3s, border-color 0.3s; }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card h3 { color: #64748b; font-size: 13px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .stat-card .number { font-size: 32px; font-weight: 700; color: #0f172a; }
+
+    /* TABLES CONTAINER BOARDS */
+    .table-container { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; margin-bottom: 32px; transition: background-color 0.3s, border-color 0.3s; width: 100%; max-width: 100%; overflow: hidden; }
+    .table-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .table-header-row h3 { color: #0f172a; font-size: 18px; transition: color 0.3s;}
+    
+    .upload-btn-wrapper { position: relative; overflow: hidden; display: inline-block; }
+    .upload-btn-wrapper button { border: 1px solid #cbd5e1; background-color: #ffffff; color: #334155; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 14px;}
+    .upload-btn-wrapper button:hover { background-color: #f8fafc; border-color: #94a3b8; }
+    .upload-btn-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+    
+    .action-btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-left: 12px; transition: all 0.2s ease; color: white; }
+    .save-btn { background-color: #3b82f6; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3); } .save-btn:hover { background-color: #2563eb; transform: translateY(-1px); }
+    .download-btn { background-color: #10b981; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3); } .download-btn:hover { background-color: #059669; transform: translateY(-1px); }
+    .track-btn { background-color: #0f172a; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600; display: inline-block; transition: 0.2s; margin-right: 4px; }
+    .track-btn:hover { background-color: #3b82f6; }
+    
+    /* SCROLL CONTAINER FOR GRAPHICS TABLES */
+    .table-responsive-wrapper { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .table-responsive-wrapper::-webkit-scrollbar { height: 8px; background-color: #f1f5f9; }
+    .table-responsive-wrapper::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    .table-responsive-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; border: 2px solid #f1f5f9; }
+    .table-responsive-wrapper::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* MATRIX FIELDS WRAPPING */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    #reader { border-radius: 12px; overflow: hidden; margin-top: 15px; border: 2px solid #3b82f6; background: #000; width: 100%; }
+    .audit-row { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.3s; gap: 12px; }
+    .audit-row:last-child { border-bottom: none; }
+    
+    table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; }
+    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; transition: background-color 0.3s, border-color 0.3s, color 0.3s; white-space: nowrap; }
+    th { background-color: #f8fafc; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
+    th:first-child { border-top-left-radius: 8px; border-left: 1px solid #e2e8f0; }
+    th:last-child { border-top-right-radius: 8px; border-right: 1px solid #e2e8f0; }
+    tr:hover td { background-color: #f1f5f9; }
+    .editable-cell:hover { background-color: #e0f2fe; cursor: text; outline: 1px dashed #3b82f6; border-radius: 4px; }
+    
+    /* STAFF MODULE */
+    .add-staff-container { margin-bottom: 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; transition: background-color 0.3s, border-color 0.3s;}
+    .add-staff-container input, .add-staff-container select { padding: 10px 16px; width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; transition: 0.2s; background: white; color: #334155;}
+    .add-staff-container input:focus, .add-staff-container select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+    .add-staff-btn { background-color: #0f172a; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .add-staff-btn:hover { background-color: #1e293b; }
+    
+    .status-btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 6px; color: white; transition: transform 0.1s; margin-bottom: 4px; }
+    .status-btn:active { transform: scale(0.95); }
+    .btn-present { background-color: #10b981; } .btn-absent { background-color: #ef4444; } .btn-weekoff { background-color: #0ea5e9; } .btn-reset { background-color: #64748b; }
+
+    /* CALENDAR */
+    .calendar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-top: 24px; }
+    .calendar-day { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; min-height: 160px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: background-color 0.3s, border-color 0.3s;}
+    .calendar-day h4 { text-align: center; color: #334155; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; font-size: 15px; }
+    .off-staff-tag { background: #e0f2fe; color: #0284c7; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; display: block; font-weight: 600; text-align: center; border: 1px solid #bae6fd; }
+
+    .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; }
+
+    /* SYSTEM MODALS & COMPONENT OVERLAYS */
+    .image-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.9); backdrop-filter: blur(5px); align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
+    .image-modal.show { display: flex; opacity: 1; }
+    .image-modal-content { max-width: 90%; max-height: 90vh; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); object-fit: contain; }
+    .image-modal-close { position: absolute; top: 20px; right: 30px; color: #f8fafc; font-size: 45px; font-weight: bold; cursor: pointer; transition: 0.2s; z-index: 1001;}
+    .image-modal-close:hover { color: #ef4444; transform: scale(1.1); }
+    
+    .qr-modal-box { background: white; padding: 40px; border-radius: 16px; text-align: center; color: black; position: relative; min-width: 300px;}
+    #qrcodeBox img { margin: 0 auto; } 
+
+    /* INVOICE MODAL STYLING RULES */
+    .invoice-modal-box { background: white; max-width: 52rem; width: 90%; max-height: 90vh; overflow-y: auto; border-radius: 12px; padding: 24px; color: #0f172a; text-align: left; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+
+    /* DARK MODE RULES */
+    body.dark-mode { background-color: #0f172a; color: #f8fafc; }
+    body.dark-mode .header { background-color: rgba(15, 23, 42, 0.95); border-bottom-color: #1e293b; }
+    body.dark-mode .stat-card, body.dark-mode .table-container, body.dark-mode .inv-card, body.dark-mode .category-header, body.dark-mode .calendar-day { background-color: #1e293b; border-color: #334155; }
+    body.dark-mode .stat-card h3, body.dark-mode .inv-sku, body.dark-mode .calendar-day h4 { color: #94a3b8; }
+    body.dark-mode .stat-card .number, body.dark-mode .inv-title, body.dark-mode .table-header-row h3, body.dark-mode .audit-text { color: #f8fafc; }
+    body.dark-mode th { background-color: #0f172a; color: #cbd5e1; border-color: #334155; }
+    body.dark-mode td, body.dark-mode .audit-row { border-color: #334155; color: #f8fafc; }
+    body.dark-mode tr:hover td { background-color: #334155; }
+    body.dark-mode .editable-cell:hover { background-color: #0f172a; }
+    body.dark-mode input, body.dark-mode select, body.dark-mode textarea { background-color: #0f172a; border-color: #334155; color: #f8fafc; }
+    body.dark-mode .search-bar input { background-color: #1e293b; border-color: #334155; color: #f8fafc; }
+    body.dark-mode .upload-btn-wrapper button { background-color: #1e293b; border-color: #334155; color: #f8fafc; }
+    body.dark-mode .qty-btn { background-color: #0f172a; color: #f8fafc; border-color: #334155; }
+    body.dark-mode .add-staff-container { background-color: #0f172a !important; border-color: #334155 !important; }
+    body.dark-mode .inv-image { background-color: #0f172a; border-color: #334155; }
+    body.dark-mode .category-badge { background-color: #0f172a; color: #cbd5e1; border-color: #334155; }
+    body.dark-mode .welcome-text { color: #f8fafc !important; }
+    body.dark-mode .btn-qr { background-color: #0f172a; color: #38bdf8; border-color: #0284c7; }
+    body.dark-mode #lastActionText { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+    body.dark-mode .table-responsive-wrapper { border-color: #334155; }
+    body.dark-mode .table-responsive-wrapper::-webkit-scrollbar { height: 8px; background-color: #0f172a; }
+    body.dark-mode .table-responsive-wrapper::-webkit-scrollbar-track { background: #0f172a; }
+    body.dark-mode .table-responsive-wrapper::-webkit-scrollbar-thumb { background: #334155; border-color: #0f172a; }
+    body.dark-mode .invoice-modal-box { background-color: #1e293b; color: #f8fafc; }
+
+    /* RESPONSIVE TOUCH MOBILE VIEWPORTS INTERFACES */
+    @media (max-width: 768px) {
+      body { flex-direction: column; overflow-y: auto; height: auto; }
+      .sidebar { width: 100%; height: auto; position: relative; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+      .sidebar h2 { padding: 16px 0; font-size: 18px; border-bottom: none; }
+      .menu-container { display: flex; flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch; background-color: #020617; border-top: 1px solid #1e293b; }
+      .menu-item { padding: 14px 20px; border-bottom: none; border-right: 1px solid #1e293b; font-size: 13px; flex-shrink: 0; }
+      .menu-item.active { border-left: none; border-bottom: 3px solid #3b82f6; background-color: #1e293b; }
+      
+      .main-content { height: auto; overflow-y: visible; width: 100%; }
+      .header { padding: 16px; justify-content: center; text-align: center; flex-direction: column; gap: 12px; }
+      .search-bar input { width: 100%; }
+      .dashboard-section { padding: 16px; }
+      
+      .grid-2 { grid-template-columns: 1fr; gap: 16px; }
+      .stats-grid { grid-template-columns: 1fr; gap: 16px; }
+      .add-staff-container { flex-direction: column; align-items: stretch; gap: 10px; }
+      .add-staff-container input, .add-staff-container select, .add-staff-container button { width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h2>Shivam Distributors</h2>
+    <div class="menu-container">
+      <div id="navOrders" class="menu-item active" onclick="switchTab('ordersSection', this)">📦 Orders</div>
+      <div id="navInventory" class="menu-item" onclick="switchTab('inventorySection', this)">🏬 Inventory</div>
+      <div id="navScanner" class="menu-item" onclick="switchTab('scanOpsSection', this)">📲 Scanner</div>
+      <div id="navAttendance" class="menu-item" onclick="switchTab('attendanceSection', this)">👥 Staff</div>
+      <div id="navCalendar" class="menu-item" onclick="switchTab('calendarSection', this)">📅 Week Off</div>
+      <div id="navAdmin" class="menu-item" onclick="switchTab('adminSection', this)">⚙️ Admin</div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="header">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Searching items, track AWB, or staff IDs...">
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;">
+        <button id="syncOnedriveBtn" class="add-staff-btn" style="background:#10b981; padding:8px 14px; font-size:13px; display:none;" onclick="fetchOneDriveExcelLive()">🔄 Sync OneDrive</button>
+        <div id="lowStockAlert" style="display:none; color: #ef4444; font-weight: 700; font-size: 13px; background: #fee2e2; padding: 6px 12px; border-radius: 6px;">⚠️ LOW STOCK</div>
+        <button id="themeToggleBtn" class="theme-btn" onclick="toggleTheme()" title="Toggle Dark Mode">🌙</button>
+        <div id="welcomeUser" style="display: flex; align-items: center; gap: 10px; font-size: 14px;"></div>
+      </div>
+    </div>
+
+    <div id="scanOpsSection" class="dashboard-section">
+      <div class="grid-2">
+        <div>
+          <div class="table-container" style="text-align: center;">
+            <p style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 10px;">Mobile Phone Sync Target</p>
+            <h2 style="color: #3b82f6; margin-bottom: 20px; font-size: 24px;">LIVE AWB SCANNING</h2>
+            <button id="scanBtn" class="add-staff-btn" style="width: 100%; font-size: 16px;" onclick="toggleScanner()">🚀 Start Phone Camera</button>
+            <div id="reader"></div>
+          </div>
+          
+          <div class="table-container" id="scanActionCard" style="transition: background-color 0.3s; padding: 24px; text-align: center;">
+            <p style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Last Label Captured</p>
+            <div id="lastActionText" style="margin-top: 12px; font-weight: 700; color: #0f172a; font-size: 28px; word-break: break-all; background: #f8fafc; padding: 15px; border-radius: 8px; border: 2px dashed #cbd5e1;">No barcode processed yet...</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="table-container" style="max-height: 480px; overflow-y: auto;">
+            <div class="table-header-row" style="margin-bottom: 15px;">
+              <h3>Order ID Tracking History</h3>
+              <span style="font-size: 12px; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-weight: 700;">Live Matched</span>
+            </div>
+            <div id="liveSessionHistoryList" style="display: flex; flex-direction: column;">
+              <p style="color:#64748b; padding:12px; text-align:center; font-style:italic;">Waiting for phone scans to arrive...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ordersSection" class="dashboard-section active">
+      <div class="stats-grid">
+        <div class="stat-card"><h3>TOTAL ORDERS</h3><div class="number" id="statTotal">0</div></div>
+        <div class="stat-card"><h3>PENDING FULFILLMENT</h3><div class="number" id="statPending" style="color: #ef4444;">0</div></div>
+        <div class="stat-card"><h3>SHIPPED TO USA</h3><div class="number" id="statShipped" style="color: #10b981;">0</div></div>
+      </div>
+      <div class="table-container">
+        <div class="table-header-row">
+          <h3>Logistics Data (Cloud Synced)</h3>
+          <div id="adminControls" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div class="upload-btn-wrapper"><button>Import Excel File</button><input type="file" id="excelUpload" accept=".xlsx, .xls" /></div>
+            <button id="saveBtn" class="action-btn save-btn" style="display: none; margin: 0;" onclick="saveOrders()">💾 Save to Cloud</button>
+            <button id="downloadBtn" class="action-btn download-btn" style="display: none; margin: 0;" onclick="downloadOrders()">📥 Download Excel</button>
+            <span id="saveMessage" style="color: #10b981; font-weight: 700; display: none;">✔ Saved!</span>
+          </div>
+        </div>
+        <div class="table-responsive-wrapper">
+          <table id="orderTable"><thead><tr id="tableHeaders"><th>Awaiting Data...</th></tr></thead><tbody id="tableBody"><tr><td>Please upload your Excel file.</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="inventorySection" class="dashboard-section">
+      <div class="table-container">
+        <div class="table-header-row">
+          <h3>Add New Product to Warehouse</h3>
+          <div id="adminInventoryControls" style="display: none; width: 100%;">
+            <div class="add-staff-container" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px; width: 100%;">
+              <input type="text" id="invItemCategory" placeholder="Category">
+              <input type="text" id="invItemName" placeholder="Product Name">
+              <input type="text" id="invItemSKU" placeholder="SKU / Barcode">
+              <input type="number" id="invItemQty" placeholder="Qty">
+              <div class="upload-btn-wrapper" style="width: 100%;">
+                <button style="background: #0f172a; color: white; border: none; padding: 12px 16px; width: 100%;">📷 Snap Photo</button>
+                <input type="file" id="invItemPhoto" accept="image/*" capture="environment" />
+              </div>
+              <button class="add-staff-btn" onclick="addInventoryItem()" id="uploadInvBtn" style="background: #3b82f6; width: 100%;">+ Add Product</button>
+              <span id="uploadStatus" style="font-weight: bold; color: #3b82f6; display: none; text-align: center; margin-top: 8px;">Uploading... ⏳</span>
+            </div>
+          </div>
+        </div>
+        <h3 style="margin-top: 32px; padding-bottom: 8px; color: #64748b; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">Warehouse Folders</h3>
+        <div id="inventoryContainer"></div>
+      </div>
+    </div>
+
+    <div id="attendanceSection" class="dashboard-section">
+      <div class="stats-grid">
+        <div class="stat-card"><h3>SELECT DATE</h3><input type="date" id="attendanceDate" style="padding: 10px 16px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 8px; cursor: pointer; width: 100%; outline: none;"></div>
+        <div class="stat-card"><h3>TOTAL STAFF</h3><div class="number" id="staffTotal">0</div></div>
+        <div class="stat-card"><h3>PRESENT TODAY</h3><div class="number" id="staffPresent" style="color: #10b981;">0</div></div>
+      </div>
+      <div class="table-container">
+        <div class="add-staff-container">
+          <input type="text" id="newStaffName" placeholder="Staff name..."><select id="newStaffBranch"><option>Main Office</option><option>Warehouse</option><option>Fulfillment Center</option></select><button class="add-staff-btn" onclick="addStaff()">+ Add Staff</button>
+        </div>
+        <div class="table-responsive-wrapper">
+          <table><thead><tr><th>Staff Name</th><th>Branch</th><th>Status</th><th>Mark Attendance</th><th>Action</th></tr></thead><tbody id="attendanceBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="calendarSection" class="dashboard-section">
+      <div class="table-container">
+        <div class="table-responsive-wrapper">
+          <table><thead><tr><th>Staff Name</th><th>Branch</th><th>Scheduled Week Off</th></tr></thead><tbody id="calendarAssignmentBody"></tbody></table>
+        </div>
+      </div>
+      <div class="table-container" style="background: transparent; box-shadow: none; padding: 0; border: none;">
+        <div class="calendar-grid">
+          <div class="calendar-day" id="day-Monday"><h4>Monday</h4><div class="day-content"></div></div><div class="calendar-day" id="day-Tuesday"><h4>Tuesday</h4><div class="day-content"></div></div><div class="calendar-day" id="day-Wednesday"><h4>Wednesday</h4><div class="day-content"></div></div><div class="calendar-day" id="day-Thursday"><h4>Thursday</h4><div class="day-content"></div></div><div class="calendar-day" id="day-Friday"><h4>Friday</h4><div class="day-content"></div></div><div class="calendar-day" id="day-Saturday"><h4>Saturday</h4><div class="day-content"></div></div><div class="calendar-day" id="day-Sunday"><h4>Sunday</h4><div class="day-content"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="adminSection" class="dashboard-section">
+      <div class="table-container" style="border-top: 4px solid #10b981;">
+        <h3 style="color: #0f172a; margin-bottom: 8px;">🔗 OneDrive Cloud Sheet Connection</h3>
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Paste your public shareable OneDrive link below to initialize real-time cross-device background synchronization loops seamlessly.</p>
+        <div class="add-staff-container" style="margin-bottom: 0; display: flex; width: 100%;">
+          <input type="text" id="onedriveLinkInput" placeholder="Paste your public OneDrive shareable link here..." style="flex: 1; width: auto;">
+          <button class="add-staff-btn" onclick="saveOneDriveConfig()" style="background: #10b981;">💾 Save Configuration</button>
+        </div>
+      </div>
+
+      <div class="table-container" style="margin-top: 24px;">
+        <div class="add-staff-container" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <input type="text" id="newAccountUsername" placeholder="Login ID"><input type="text" id="newAccountName" placeholder="Display Name"><input type="text" id="newAccountPass" placeholder="Password">
+          <select id="newAccountRole"><option value="warehouse">Warehouse</option><option value="admin">Admin</option></select>
+          <button class="add-staff-btn" onclick="createNewAccount()" style="background: #3b82f6;">Create Account</button>
+        </div>
+        <div class="table-responsive-wrapper">
+          <table style="margin-top: 24px;"><thead><tr><th>Login ID</th><th>Display Name</th><th>Password</th><th>Access Level</th><th>Action</th></tr></thead><tbody id="adminUsersBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="imageModal" class="image-modal">
+    <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+    <img class="image-modal-content" id="modalImage">
+  </div>
+
+  <div id="qrModal" class="image-modal">
+    <div class="qr-modal-box">
+      <span class="image-modal-close print-hide" style="color: black; top: 10px; right: 20px;" onclick="closeQrModal()">&times;</span>
+      <h2 id="qrItemName" style="margin-bottom: 10px; font-size: 22px;"></h2>
+      <div id="qrcodeBox" style="margin: 25px 0;"></div>
+      <p id="qrItemSku" style="font-family: monospace; font-size: 18px; margin-bottom: 25px; color: #64748b;"></p>
+      <button class="add-staff-btn print-hide" style="background: #3b82f6; width: 100%; font-size: 16px;" onclick="window.print()">🖨️ Print Label</button>
+    </div>
+  </div>
+
+  <div id="invoiceGeneratorModal" class="image-modal">
+    <div class="invoice-modal-box">
+      <span class="image-modal-close print-hide" style="color: #64748b; top: 15px; right: 20px;" onclick="closeInvoiceModal()">&times;</span>
+      <h2 class="text-xl font-bold mb-4 text-blue-500 border-b pb-2">A4 Export Invoice Generator Panel</h2>
+      
+      <form id="invoiceForm">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Invoice #</label>
+            <input type="text" id="invoiceNum" required class="w-full p-2 border border-gray-300 rounded text-sm bg-white text-gray-900 dark:bg-slate-800 dark:text-slate-100" placeholder="EXP-007">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Order ID Target</label>
+            <input type="text" id="invoiceOrderId" required class="w-full p-2 border border-gray-300 rounded text-sm bg-white text-gray-900 dark:bg-slate-800 dark:text-slate-100" placeholder="Amazon Order ID">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Invoice Generation Date</label>
+            <input type="date" id="invoiceDate" required class="w-full p-2 border border-gray-300 rounded text-sm bg-white text-gray-900 dark:bg-slate-800 dark:text-slate-100">
+          </div>
+          <div class="md:col-span-3">
+            <label class="block text-xs font-bold text-gray-400 mb-1">Ship To Customer Destination Address</label>
+            <textarea id="invoiceShipTo" required rows="3" class="w-full p-2 border border-gray-300 rounded text-sm bg-white text-gray-900 dark:bg-slate-800 dark:text-slate-100" placeholder="Address block details..."></textarea>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="text-sm font-bold mb-2 text-gray-400">Consignment Product Items Line Matrix</h4>
+          <div id="invoiceItemsContainer" class="space-y-2">
+            <div class="invoice-item-row grid grid-cols-1 md:grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700">
+              <div class="md:col-span-6">
+                <input type="text" class="invoice-item-desc w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="Item Description" required>
+              </div>
+              <div class="md:col-span-2">
+                <input type="number" class="invoice-item-hsn w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="HSN Code" required>
+              </div>
+              <div class="md:col-span-2">
+                <input type="number" class="invoice-item-qty w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="QTY" required>
+              </div>
+              <div class="md:col-span-2">
+                <input type="number" step="0.01" class="invoice-item-rate w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="USD Rate" required>
+              </div>
+            </div>
+          </div>
+          <button type="button" onclick="addInvoiceItemFieldRow()" class="mt-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-200 px-3 py-1.5 rounded font-medium text-xs">+ Add Another Item Row</button>
+        </div>
+
+        <div class="mb-4 p-3 border rounded bg-blue-50 dark:bg-slate-800 border-blue-200 dark:border-slate-700">
+          <label class="block text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">Upload Authorized Signature Image Stamp (Optional)</label>
+          <input type="file" id="invoiceSignatureUpload" accept="image/*" class="w-full text-xs text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"/>
+        </div>
+
+        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-lg transition text-sm">
+            Generate and Download Exact Export PDF Invoice
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDKrxNZJZOhQf-h6GE5rkdFepfKYfaJOfQ",
+      authDomain: "shiv-omkar.firebaseapp.com",
+      databaseURL: "https://shiv-omkar-default-rtdb.firebaseio.com",
+      projectId: "shiv-omkar",
+      storageBucket: "shiv-omkar.firebasestorage.app",
+      messagingSenderId: "18601432881",
+      appId: "1:18601432881:web:2587c7bbfd5298da628210"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.globalExcelData = []; window.staffData = []; window.allStaffDetails = []; window.systemUsers = {}; window.inventoryData = {};
+    window.currentViewDate = new Date().toLocaleDateString('en-CA'); 
+    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    let attendanceListener = null;
+    
+    // Scanner Control Variables
+    let html5QrScanner = null;
+    let scanLock = false; 
+
+    // Session Timeout Monitoring Logic
+    let inactivityTimer;
+    const INACTIVITY_LIMIT = 20 * 60 * 1000; 
+
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(window.logout, INACTIVITY_LIMIT);
+    }
+
+    function setupSessionTimeout() {
+      window.addEventListener('mousemove', resetInactivityTimer);
+      window.addEventListener('mousedown', resetInactivityTimer);
+      window.addEventListener('keypress', resetInactivityTimer);
+      window.addEventListener('touchstart', resetInactivityTimer);
+      window.addEventListener('scroll', resetInactivityTimer);
+      resetInactivityTimer();
+    }
+
+    window.toggleTheme = function() {
+      const body = document.body;
+      const btn = document.getElementById('themeToggleBtn');
+      body.classList.toggle('dark-mode');
+      
+      if (body.classList.contains('dark-mode')) {
+        localStorage.setItem('shivOmkarTheme', 'dark');
+        btn.innerText = '☀️';
+      } else {
+        localStorage.setItem('shivOmkarTheme', 'light');
+        btn.innerText = '🌙';
+      }
+    }
+
+    function checkLowStock() {
+      const userRole = localStorage.getItem('shivOmkarRole');
+      let lowItems = Object.values(window.inventoryData).filter(item => item.qty < 10);
+      const alertTag = document.getElementById('lowStockAlert');
+      if(lowItems.length > 0 && userRole === 'admin') {
+          alertTag.style.display = 'block';
+          alertTag.innerText = `⚠️ ${lowItems.length} LOW`;
+      } else {
+          alertTag.style.display = 'none';
+      }
+    }
+
+    // --- AUTOMATED REGULAR ENGINES LINKING CONFIGURATORS ---
+    window.saveOneDriveConfig = function() {
+      const linkVal = document.getElementById('onedriveLinkInput').value.trim();
+      if(!linkVal) { alert("Please input a valid URL share link."); return; }
+      localStorage.setItem('shivOmkarOneDriveLink', linkVal);
+      document.getElementById('syncOnedriveBtn').style.display = "inline-block";
+      alert("OneDrive Cloud Sheet URL configured successfully!");
+      window.fetchOneDriveExcelLive();
+    };
+
+    // --- HIGH-PERFORMANCE LINK REDIRECTION PARSER BLOCK ---
+    window.fetchOneDriveExcelLive = async function() {
+      const btn = document.getElementById('syncOnedriveBtn');
+      const shareableLink = localStorage.getItem('shivOmkarOneDriveLink');
+      if (!shareableLink) return;
+      
+      try {
+        btn.innerText = "⏳ Syncing...";
+        btn.disabled = true;
+
+        // Strip UI hashes to read Microsoft's public backend raw binary array directly
+        let cleanDownloadURL = shareableLink.replace('/redir?', '/download?').replace('/edit?', '/download?');
+        if (!cleanDownloadURL.includes('download=1') && !cleanDownloadURL.includes('/download')) {
+          cleanDownloadURL += (cleanDownloadURL.includes('?') ? '&' : '?') + 'download=1';
+        }
+
+        const networkStream = await fetch(cleanDownloadURL);
+        if (!networkStream.ok) throw new Error("OneDrive stream connection rejected.");
+
+        const fileBlob = await networkStream.arrayBuffer();
+        const workbookNode = XLSX.read(new Uint8Array(fileBlob), { type: 'array' });
+        
+        const rawJsonSheet = XLSX.utils.sheet_to_json(workbookNode.Sheets[workbookNode.SheetNames[0]], { raw: false, defval: "" });
+        
+        window.globalExcelData = rawJsonSheet.map(row => {
+          let secureRow = {};
+          for (let headerKey in row) {
+            secureRow[headerKey.replace(/[.#$\[\]]/g, '').trim()] = row[headerKey];
+          }
+          return secureRow;
+        });
+
+        buildTable(window.globalExcelData);
+        await set(ref(db, 'orders'), window.globalExcelData);
+        
+        btn.innerText = "🔄 Sync OneDrive";
+        btn.disabled = false;
+        
+        const saveAlert = document.getElementById('saveMessage');
+        saveAlert.innerText = "✔ OneDrive Synced!";
+        saveAlert.style.display = "inline-block";
+        setTimeout(() => { saveAlert.style.display = "none"; saveAlert.innerText = "✔ Saved!"; }, 2500);
+
+      } catch (err) {
+        console.error("OneDrive Ingestion Error:", err);
+        alert("Unable to load OneDrive cloud sheet records live. Check configuration sharing parameters.");
+        btn.innerText = "🔄 Sync OneDrive";
+        btn.disabled = false;
+      }
+    };
+
+    // --- INTEGRATED INVOICE SUB-PANEL HOOK AUTOMATIONS ---
+    window.openInvoiceLauncherForm = function(orderId, addressText) {
+      document.getElementById('invoiceOrderId').value = orderId || '';
+      let cleanAddress = String(addressText || '').replace(/,/g, '\\n').trim();
+      document.getElementById('invoiceShipTo').value = cleanAddress;
+      document.getElementById('invoiceNum').value = 'EXP-' + Math.floor(100 + Math.random() * 900);
+      document.getElementById('invoiceDate').valueAsDate = new Date();
+      
+      document.getElementById('invoiceItemsContainer').innerHTML = `
+        <div class="invoice-item-row grid grid-cols-1 md:grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700">
+          <div class="md:col-span-6"><input type="text" class="invoice-item-desc w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="Item Description" required></div>
+          <div class="md:col-span-2"><input type="number" class="invoice-item-hsn w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="HSN Code" required></div>
+          <div class="md:col-span-2"><input type="number" class="invoice-item-qty w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="QTY" required></div>
+          <div class="md:col-span-2"><input type="number" step="0.01" class="invoice-item-rate w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="USD Rate" required></div>
+        </div>
+      `;
+      
+      const modal = document.getElementById('invoiceGeneratorModal');
+      modal.style.display = 'flex';
+      setTimeout(() => modal.classList.add('show'), 10);
+    };
+
+    window.closeInvoiceModal = function() {
+      const modal = document.getElementById('invoiceGeneratorModal');
+      modal.classList.remove('show');
+      setTimeout(() => modal.style.display = 'none', 300);
+    };
+
+    window.addInvoiceItemFieldRow = function() {
+      const parentContainer = document.getElementById('invoiceItemsContainer');
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'invoice-item-row grid grid-cols-1 md:grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700';
+      rowDiv.innerHTML = `
+        <div class="md:col-span-6"><input type="text" class="invoice-item-desc w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="Item Description" required></div>
+        <div class="md:col-span-2"><input type="number" class="invoice-item-hsn w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="HSN Code" required></div>
+        <div class="md:col-span-2"><input type="number" class="invoice-item-qty w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="QTY" required></div>
+        <div class="md:col-span-2"><input type="number" step="0.01" class="invoice-item-rate w-full p-2 border rounded text-xs bg-white text-gray-900 dark:bg-slate-700 dark:text-slate-100" placeholder="USD Rate" required></div>
+      `;
+      parentContainer.appendChild(rowDiv);
+    };
+
+    function processTextWordUSD(amount) {
+      const ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+      const tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+      function convertWhole(num) {
+        if (num === 0) return 'ZERO';
+        if (num < 20) return ones[num];
+        if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
+        if (num < 1000) return ones[Math.floor(num / 100)] + ' HUNDRED' + (num % 100 !== 0 ? ' ' + convertWhole(num % 100) : '');
+        if (num < 1000000) return convertWhole(Math.floor(num / 1000)) + ' THOUSAND' + (num % 1000 !== 0 ? ' ' + convertWhole(num % 1000) : '');
+        return num.toString(); 
+      }
+      const dollars = Math.floor(amount);
+      const cents = Math.round((amount - dollars) * 100);
+      let words = `USD ${convertWhole(dollars)} DOLLARS`;
+      if (cents > 0) words += ` ${convertWhole(cents)} CENT`;
+      return words + ' ONLY';
+    }
+
+    document.getElementById('invoiceForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const num = document.getElementById('invoiceNum').value;
+      const oId = document.getElementById('invoiceOrderId').value;
+      const rawDate = new Date(document.getElementById('invoiceDate').value);
+      const dateString = `${rawDate.getMonth() + 1}/${rawDate.getDate()}/${rawDate.getFullYear()}`;
+      const destinationAddr = document.getElementById('invoiceShipTo').value;
+      const signatureImg = document.getElementById('invoiceSignatureUpload').files[0];
+      
+      const itemRowsArray = [];
+      let calculatedTotal = 0;
+
+      document.querySelectorAll('.invoice-item-row').forEach((row, i) => {
+        const q = parseFloat(row.querySelector('.invoice-item-qty').value);
+        const r = parseFloat(row.querySelector('.invoice-item-rate').value);
+        const subAmt = q * r;
+        calculatedTotal += subAmt;
+
+        itemRowsArray.push([
+          (i + 1).toString(),
+          row.querySelector('.invoice-item-desc').value,
+          row.querySelector('.invoice-item-hsn').value,
+          q.toString(),
+          r.toFixed(2),
+          '0%', '0',
+          subAmt.toFixed(2)
+        ]);
+      });
+
+      const { jsPDF } = window.jspdf;
+      const pdfDoc = new jsPDF();
+
+      // Company Left Block Header
+      pdfDoc.setFontSize(11); pdfDoc.setFont("helvetica", "bold");
+      pdfDoc.text("SHIVAM DISTRIBUTORS", 14, 20);
+      pdfDoc.setFontSize(9); pdfDoc.setFont("helvetica", "normal");
+      pdfDoc.text("AHMEDABAD Gujarat 380013\\nIndia\\n\\nGSTIN 24AFHFS0796R1Z5\\n9712009940\\n\\nbill.shivamdistributors@gmail.com", 14, 25);
+
+      // Meta Invoice Details
+      pdfDoc.setFontSize(14); pdfDoc.setFont("helvetica", "bold");
+      pdfDoc.text("TAX INVOICE", 196, 20, { align: "right" });
+
+      pdfDoc.autoTable({
+          startY: 25, margin: { left: 125, right: 14 }, theme: 'plain',
+          styles: { fontSize: 9, cellPadding: 1, textColor: [0, 0, 0] },
+          body: [
+              ['#', `: EXP-${num.replace('EXP-', '')}`],
+              ['Invoice Date', `: ${dateString}`],
+              ['Terms', ': Due on Receipt'],
+              ['Due Date', `: ${dateString}`],
+              ['Order Id', `: ${oId}`],
+              ['P.O.#', `: ${dateString}`]
+          ]
+      });
+
+      // Addresses Blocks
+      pdfDoc.setFontSize(10); pdfDoc.setFont("helvetica", "bold");
+      pdfDoc.text("Bill To", 14, 65); pdfDoc.text("Ship To", 105, 65);
+      pdfDoc.setFontSize(9); pdfDoc.setFont("helvetica", "normal");
+      pdfDoc.text("SHIVAM DISTRIBUTORS LLC\\n1021 CHESSRIDGE WAY\\nMORRISVILLE\\n27560 North Carolina\\nU.S.A", 14, 70);
+      pdfDoc.text(destinationAddr, 105, 70);
+
+      // Subject Export Declaration
+      pdfDoc.setFontSize(9); pdfDoc.setFont("helvetica", "bold");
+      pdfDoc.text("Subject:", 14, 95); pdfDoc.setFont("helvetica", "normal");
+      pdfDoc.text("SUPPLY OF GOODS MEANT FOR THE PURPOSE OF EXPORT-UNDER LUT-AD2406250297765", 14, 100);
+
+      // Data Sheet Line Grid Matrix
+      pdfDoc.autoTable({
+          startY: 105, theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [200, 200, 200] },
+          bodyStyles: { textColor: [0, 0, 0], lineWidth: 0.1, lineColor: [200, 200, 200] },
+          head: [['#', 'ITEM & DESCRIPTION', 'HSN/SAC', 'QTY', 'RATE IN\\nUSD', 'IGST\\n%', 'Amt', 'AMOUNT']],
+          body: itemRowsArray,
+          columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 65 } }
+      });
+
+      // Total Summaries
+      let bottomY = pdfDoc.lastAutoTable.finalY + 5;
+      pdfDoc.autoTable({
+          startY: bottomY, margin: { left: 125, right: 14 }, theme: 'plain',
+          styles: { fontSize: 9, cellPadding: 1, textColor: [0, 0, 0] },
+          columnStyles: { 0: { cellWidth: 35 }, 1: { halign: 'right' } },
+          body: [
+              ['Sub Total', calculatedTotal.toFixed(2)],
+              ['IGSTO(0%)', '0'],
+              ['Total', calculatedTotal.toFixed(2)],
+              ['Balance Due', calculatedTotal.toFixed(2)]
+          ]
+      });
+
+      pdfDoc.setFont("helvetica", "italic"); pdfDoc.text("Total In Words", 14, bottomY + 5);
+      pdfDoc.setFont("helvetica", "bold"); pdfDoc.text(processTextWordUSD(calculatedTotal), 14, bottomY + 10);
+      pdfDoc.setFont("helvetica", "italic"); pdfDoc.text("Notes", 14, bottomY + 25);
+      pdfDoc.setFont("helvetica", "normal"); pdfDoc.text("Thanks for your business.", 14, bottomY + 30);
+
+      // Digital Stamps Signature Configurations
+      let signatureAreaY = bottomY + 25;
+      if (signatureImg) {
+          const readerNode = new FileReader(); readerNode.readAsDataURL(signatureImg);
+          readerNode.onload = function(event) {
+            const ext = signatureImg.type === 'image/png' ? 'PNG' : 'JPEG';
+            pdfDoc.addImage(event.target.result, ext, 150, signatureAreaY - 10, 30, 15);
+            pdfDoc.setFont("helvetica", "normal"); pdfDoc.text("Authorized Signature", 165, signatureAreaY + 15, { align: "center" });
+            pdfDoc.save(`${oId}_Invoice.pdf`);
+            window.closeInvoiceModal();
+          };
+      } else {
+          pdfDoc.setFont("helvetica", "bold"); pdfDoc.text("P.P", 165, signatureAreaY + 5, { align: "center" });
+          pdfDoc.setFont("helvetica", "normal"); pdfDoc.text("Authorized Signature", 165, signatureAreaY + 15, { align: "center" });
+          pdfDoc.save(`${oId}_Invoice.pdf`);
+          window.closeInvoiceModal();
+      }
+    });
+
+    window.onload = function() {
+      setupSessionTimeout(); 
+
+      const savedTheme = localStorage.getItem('shivOmkarTheme');
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('themeToggleBtn').innerText = '☀️';
+      }
+
+      const userRole = localStorage.getItem('shivOmkarRole') || 'warehouse';
+      const userName = localStorage.getItem('shivOmkarName') || 'Staff';
+
+      document.getElementById('welcomeUser').innerHTML = `
+        <strong class="welcome-text">Welcome, ${userName}</strong> 
+        <button onclick="window.logout()" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">Logout</button>
+      `;
+
+      if (userRole === 'admin') {
+        document.getElementById('adminInventoryControls').style.display = 'block';
+        
+        const onedriveLinkSaved = localStorage.getItem('shivOmkarOneDriveLink');
+        if (onedriveLinkSaved) {
+          document.getElementById('onedriveLinkInput').value = onedriveLinkSaved;
+          document.getElementById('syncOnedriveBtn').style.display = "inline-block";
+          window.fetchOneDriveExcelLive();
+        }
+      } else {
+        document.getElementById('navAttendance').style.display = 'none';
+        document.getElementById('navCalendar').style.display = 'none';
+        document.getElementById('navAdmin').style.display = 'none';
+        document.getElementById('adminControls').style.display = 'none';
+      }
+
+      onValue(ref(db, 'orders'), (snapshot) => { 
+        if (snapshot.val() && window.globalExcelData.length === 0) { 
+          window.globalExcelData = snapshot.val(); 
+          buildTable(window.globalExcelData); 
+        }
+      });
+      
+      onValue(ref(db, 'inventory'), (snapshot) => { 
+        window.inventoryData = snapshot.val() || {}; 
+        window.renderInventory(); 
+        checkLowStock();
+      });
+
+      if (userRole === 'admin') {
+        onValue(ref(db, 'staffDetails'), (snapshot) => { window.allStaffDetails = snapshot.val() || []; window.renderCalendarTab(); });
+        onValue(ref(db, 'users'), (snapshot) => { window.systemUsers = snapshot.val() || {}; window.renderAdminPanel(); });
+        window.loadAttendance();
+      }
+
+      // --- MULTI-ORDER LOG TIMELINES ---
+      onValue(ref(db, 'liveRemoteScan'), (snapshot) => {
+        const payload = snapshot.val();
+        if (!payload || !payload.awb) return;
+
+        const incomingAWB = payload.awb.trim();
+        let matchedOrderIDs = [];
+        let hasMatch = false;
+
+        const amazonPattern = /\d{3}-\d{7}-\d{7}/;
+        const matchesPattern = incomingAWB.match(amazonPattern);
+
+        if (matchesPattern) {
+          matchedOrderIDs.push(matchesPattern[0]);
+          hasMatch = window.globalExcelData.some(row => 
+            Object.values(row).some(cell => String(cell).toLowerCase().includes(matchesPattern[0].toLowerCase()))
+          );
+        } else {
+          window.globalExcelData.forEach(row => {
+            let rowMatchesBarcode = Object.values(row).some(cell => 
+              String(cell).toLowerCase().trim() === incomingAWB.toLowerCase()
+            );
+            if (rowMatchesBarcode) {
+              hasMatch = true;
+              let foundID = row['Order ID'] || row['OrderID'] || row['Amazon Order ID'] || row['Order ID No'];
+              if (foundID && !matchedOrderIDs.includes(foundID)) {
+                matchedOrderIDs.push(foundID);
+              }
+            }
+          });
+        }
+
+        if (matchedOrderIDs.length === 0) {
+          matchedOrderIDs.push(incomingAWB);
+        }
+
+        const filterQuery = matchesPattern ? matchesPattern[0] : incomingAWB;
+        document.getElementById('searchInput').value = filterQuery;
+        document.getElementById('searchInput').dispatchEvent(new Event('keyup'));
+
+        const badgeStyle = hasMatch 
+          ? "background:#dcfce7; color:#16a34a; border: 1px solid #bbf7d0;" 
+          : "background:#fee2e2; color:#dc2626; border: 1px solid #fca5a5;";
+        const badgeLabel = hasMatch ? `${matchedOrderIDs.length} MATCH(ES)` : "NOT FOUND";
+
+        const dynamicRow = document.createElement('div');
+        dynamicRow.className = 'audit-row';
+        dynamicRow.style.background = '#ffffff';
+        dynamicRow.style.margin = '6px 0';
+        dynamicRow.style.borderRadius = '8px';
+        dynamicRow.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+        dynamicRow.style.padding = '12px 16px';
+        
+        let idListHtml = matchedOrderIDs.map(id => `
+          <div style="font-family:monospace; font-size:15px; font-weight:700; color:#0f172a; margin-bottom: 2px;">🎯 ${id}</div>
+        `).join('');
+
+        dynamicRow.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:4px; flex: 1; text-align: left;">
+            <span style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Result Order ID(s):</span>
+            ${idListHtml}
+            <span style="font-size:11px; color:#94a3b8; margin-top:4px;">AWB: ${incomingAWB}</span>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:space-between; gap:12px;">
+            <span style="padding:4px 10px; border-radius:6px; font-size:10px; font-weight:800; ${badgeStyle}">${badgeLabel}</span>
+            <span style="color:#94a3b8; font-size:11px; font-weight:500;">${payload.time}</span>
+          </div>
+        `;
+
+        const logContainer = document.getElementById('liveSessionHistoryList');
+        if (logContainer.firstChild && logContainer.innerHTML.includes("Waiting for phone scans")) {
+          logContainer.innerHTML = '';
+        }
+        logContainer.insertBefore(dynamicRow, logContainer.firstChild);
+
+        document.getElementById('lastActionText').innerText = matchedOrderIDs.join(', ');
+        const infoCard = document.getElementById('scanActionCard');
+        infoCard.style.backgroundColor = hasMatch ? '#dcfce7' : '#fee2e2';
+        setTimeout(() => { infoCard.style.backgroundColor = ''; }, 2000);
+      });
+    };
+
+    window.logout = function() { localStorage.clear(); window.location.replace('index.html'); }
+    window.switchTab = function(sectionId, clickedElement) {
+      document.querySelectorAll('.dashboard-section').forEach(sec => sec.classList.remove('active'));
+      document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+      document.getElementById(sectionId).classList.add('active'); clickedElement.classList.add('active');
+      
+      if(window.innerWidth <= 768) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    // --- ENHANCED WEBCAM Engine ---
+    window.toggleScanner = function() {
+      if(html5QrScanner) { 
+        html5QrScanner.clear(); 
+        html5QrScanner = null; 
+        document.getElementById('scanBtn').innerText = "🚀 Start Phone Camera";
+        return; 
+      }
+      
+      document.getElementById('scanBtn').innerText = "🛑 Stop Camera";
+      
+      html5QrScanner = new Html5QrcodeScanner("reader", { 
+        fps: 30, 
+        qrbox: { width: 320, height: 160 },
+        rememberLastUsedCamera: true,
+        videoConstraints: {
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 },
+          facingMode: "environment"
+        }
+      });
+      
+      html5QrScanner.render((decodedText) => {
+        if (scanLock) return;
+        scanLock = true;
+
+        const finalAWBText = decodedText.trim();
+
+        set(ref(db, 'liveRemoteScan'), {
+          awb: finalAWBText,
+          time: new Date().toLocaleTimeString(),
+          sender: localStorage.getItem('shivOmkarName') || 'Terminal Device'
+        });
+
+        document.getElementById('lastActionText').innerText = finalAWBText;
+        const boxWrapper = document.getElementById('scanActionCard');
+        boxWrapper.style.backgroundColor = '#dcfce7';
+
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioCtx.createOscillator();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(950, audioCtx.currentTime);
+          oscillator.connect(audioCtx.destination);
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.12);
+        } catch(error) {}
+
+        setTimeout(() => { 
+          boxWrapper.style.backgroundColor = ''; 
+          scanLock = false; 
+        }, 1600);
+
+      }, (err) => {});
+    };
+
+    // --- SYSTEM OVERLAYS CONTEXT CLOSURES ---
+    window.openImageModal = function(sku) {
+      document.getElementById('modalImage').src = window.inventoryData[sku].photo;
+      const modal = document.getElementById('imageModal');
+      modal.style.display = 'flex';
+      setTimeout(() => modal.classList.add('show'), 10);
+    }
+    window.closeImageModal = function() {
+      const modal = document.getElementById('imageModal');
+      modal.classList.remove('show');
+      setTimeout(() => modal.style.display = 'none', 300);
+    }
+    
+    window.showPrintLabel = function(sku, name) {
+      document.getElementById('qrItemName').innerText = name;
+      document.getElementById('qrItemSku').innerText = "SKU: " + sku;
+      const box = document.getElementById('qrcodeBox');
+      box.innerHTML = ''; 
+      new QRCode(box, {
+        text: sku,
+        width: 180,
+        height: 180,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+      });
+      const modal = document.getElementById('qrModal');
+      modal.style.display = 'flex';
+      setTimeout(() => modal.classList.add('show'), 10);
+    }
+    window.closeQrModal = function() {
+      const modal = document.getElementById('qrModal');
+      modal.classList.remove('show');
+      setTimeout(() => modal.style.display = 'none', 300);
+    }
+
+    // --- COMPILER MATRICES ---
+    window.addInventoryItem = function() {
+      const category = document.getElementById('invItemCategory').value.trim() || 'Uncategorized';
+      const name = document.getElementById('invItemName').value.trim();
+      const sku = document.getElementById('invItemSKU').value.trim();
+      const qty = parseInt(document.getElementById('invItemQty').value) || 0;
+      const photoFile = document.getElementById('invItemPhoto').files[0];
+
+      if (!name || !sku) { alert("Please provide a Name and SKU."); return; }
+      if (!photoFile) { alert("Please snap or upload a photo of the product."); return; }
+
+      const btn = document.getElementById('uploadInvBtn'); const status = document.getElementById('uploadStatus');
+      btn.disabled = true; status.style.display = 'inline';
+      const safeSKU = sku.replace(/[.#$\[\]]/g, '');
+
+      const reader = new FileReader(); reader.readAsDataURL(photoFile);
+      reader.onload = function(event) {
+        const img = new Image(); img.src = event.target.result;
+        img.onload = async function() {
+          const canvas = document.createElement('canvas'); const MAX_WIDTH = 500; 
+          const scaleSize = MAX_WIDTH / img.width; canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
+          const mainCtx = canvas.getContext('2d'); mainCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const base64TextPhoto = canvas.toDataURL('image/jpeg', 0.8);
+
+          window.inventoryData[safeSKU] = { category: category, name: name, sku: sku, qty: qty, photo: base64TextPhoto };
+          await set(ref(db, 'inventory'), window.inventoryData);
+
+          document.getElementById('invItemCategory').value = ''; document.getElementById('invItemName').value = ''; 
+          document.getElementById('invItemSKU').value = ''; document.getElementById('invItemQty').value = ''; 
+          document.getElementById('invItemPhoto').value = '';
+          btn.disabled = false; status.style.display = 'none';
+        }
+      };
+    }
+
+    window.updateInventoryQty = function(sku, amount) {
+      if (window.inventoryData[sku]) {
+        window.inventoryData[sku].qty += amount;
+        if (window.inventoryData[sku].qty < 0) window.inventoryData[sku].qty = 0; 
+        set(ref(db, 'inventory'), window.inventoryData);
+      }
+    }
+
+    window.removeInventoryItem = function(sku, itemName) {
+      if(confirm(`Are you sure you want to completely delete "${itemName}"?`)) {
+        delete window.inventoryData[sku];
+        set(ref(db, 'inventory'), window.inventoryData);
+      }
+    }
+
+    window.renderInventory = function() {
+      const container = document.getElementById('inventoryContainer'); 
+      container.innerHTML = '';
+      const currentUserRole = localStorage.getItem('shivOmkarRole') || 'warehouse';
+
+      const categorizedItems = {};
+      for (const [sku, item] of Object.entries(window.inventoryData)) {
+        const cat = item.category || 'Uncategorized';
+        if (!categorizedItems[cat]) categorizedItems[cat] = [];
+        categorizedItems[cat].push({ sku, ...item });
+      }
+
+      for (const [cat, items] of Object.entries(categorizedItems)) {
+        const folderDiv = document.createElement('div');
+        folderDiv.innerHTML = `<div class="category-header">📁 ${cat} <span class="category-badge">${items.length} Items</span></div><div class="inventory-grid"></div>`;
+        container.appendChild(folderDiv);
+        
+        const grid = folderDiv.querySelector('.inventory-grid');
+        items.forEach(item => {
+          const card = document.createElement('div'); card.className = 'inv-card';
+          const safeName = item.name.replace(/'/g, "\\'"); 
+          let deleteBtnHtml = currentUserRole === 'admin' ? `<button class="inv-action-btn btn-delete" onclick="removeInventoryItem('${item.sku}', '${safeName}')">🗑️ Remove Item</button>` : '';
+
+          card.innerHTML = `
+            <img src="${item.photo}" class="inv-image" alt="${item.name}" onclick="openImageModal('${item.sku}')">
+            <div class="inv-title">${item.name}</div>
+            <div class="inv-sku">SKU: ${item.sku}</div>
+            <div class="inv-qty">${item.qty} in stock</div>
+            <div>
+              <button class="qty-btn" onclick="updateInventoryQty('${item.sku}', -1)">-</button> 
+              <button class="qty-btn" onclick="updateInventoryQty('${item.sku}', 1)">+</button>
+            </div>
+            <button class="inv-action-btn btn-qr" onclick="showPrintLabel('${item.sku}', '${safeName}')">🖨️ QR Label</button>
+            ${deleteBtnHtml}
+          `;
+          grid.appendChild(card);
+        });
+      }
+    }
+
+    // --- AUTOMATED REGULAR EXCEL GRID PROCESSORS ---
+    document.getElementById('excelUpload').addEventListener('change', function(event) {
+      const file = event.target.files[0]; if (!file) return; const reader = new FileReader();
+      reader.onload = function(e) {
+        const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false, defval: ""});
+        window.globalExcelData = rawData.map(row => { let cleanRow = {}; for (let key in row) { cleanRow[key.replace(/[.#$\[\]]/g, '').trim()] = row[key]; } return cleanRow; });
+        buildTable(window.globalExcelData); set(ref(db, 'orders'), window.globalExcelData);
+      }; reader.readAsArrayBuffer(file);
+    });
+
+    function buildTable(data) {
+      const thead = document.getElementById('tableHeaders'); const tbody = document.getElementById('tableBody');
+      thead.innerHTML = ''; tbody.innerHTML = ''; if(!data || data.length === 0) return;
+      let pendingCount = 0; let shippedCount = 0; const headers = Object.keys(data[0]);
+      
+      headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; thead.appendChild(th); });
+      const actionsTh = document.createElement('th'); actionsTh.textContent = "Invoice CTA"; thead.appendChild(actionsTh);
+
+      data.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        if (row['Shiped'] === "") pendingCount++; else if (row['Country'] && row['Country'].toUpperCase() === 'US') shippedCount++;
+        
+        headers.forEach(header => {
+          const td = document.createElement('td'); let cellValue = row[header];
+          if (header === 'USPS Tracking No' && cellValue && cellValue !== "") {
+            const trackLink = document.createElement('a'); trackLink.href = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + cellValue; trackLink.target = '_blank'; trackLink.className = 'track-btn'; trackLink.textContent = 'Track'; td.appendChild(trackLink);
+          } else {
+            td.textContent = cellValue; td.setAttribute('contenteditable', 'true'); td.className = 'editable-cell';
+            td.addEventListener('blur', function() { window.globalExcelData[index][header] = this.innerText; });
+          }
+          tr.appendChild(td);
+        });
+
+        const actionsTd = document.createElement('td');
+        const targetOrderId = row['Order ID'] || row['OrderID'] || row['Amazon Order ID'] || '';
+        const addressBlock = row['Ship To Address'] || row['Address'] || row['Full Address'] || '';
+        
+        actionsTd.innerHTML = `<button class="track-btn" style="background:#2563eb;" onclick="openInvoiceLauncherForm('${targetOrderId}', '${addressBlock}')">📄 Gen Invoice</button>`;
+        tr.appendChild(actionsTd);
+        tbody.appendChild(tr);
+      });
+      document.getElementById('statTotal').innerText = data.length; document.getElementById('statPending').innerText = pendingCount; document.getElementById('statShipped').innerText = shippedCount;
+      document.getElementById('saveBtn').style.display = 'inline-block'; document.getElementById('downloadBtn').style.display = 'inline-block';
+    }
+
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+      const val = this.value.toLowerCase().trim();
+      document.querySelectorAll('#tableBody tr').forEach(row => { row.style.display = row.textContent.toLowerCase().includes(val) ? '' : 'none'; });
+      document.querySelectorAll('#attendanceBody tr').forEach(row => { row.style.display = row.textContent.toLowerCase().includes(val) ? '' : 'none'; });
+      document.querySelectorAll('.inv-card').forEach(card => { card.style.display = card.textContent.toLowerCase().includes(val) ? '' : 'none'; });
+    });
+
+    window.saveOrders = function() { set(ref(db, 'orders'), window.globalExcelData).then(() => { const msg = document.getElementById('saveMessage'); msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2000); }); }
+    window.downloadOrders = function() { const newWorkbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.json_to_sheet(window.globalExcelData), "Updated Orders"); XLSX.writeFile(newWorkbook, "Shivam_Distributors_Updated_Orders.xlsx"); }
+
+    window.loadAttendance = function() {
+      document.getElementById('attendanceDate').value = window.currentViewDate; if (attendanceListener) attendanceListener(); 
+      attendanceListener = onValue(ref(db, 'attendance/' + window.currentViewDate), (snapshot) => {
+        const data = snapshot.val();
+        if (data) { window.staffData = data; } else {
+          let nameOfDay = daysOfWeek[new Date(window.currentViewDate + 'T00:00:00').getDay()];
+          window.staffData = window.allStaffDetails.map(staff => ({ name: staff.name, branch: staff.branch, status: (staff.weekOff === nameOfDay) ? "Week Off" : "Pending" }));
+        }
+        window.renderAttendanceTable();
+      });
+    }
+
+    document.getElementById('attendanceDate').addEventListener('change', function() { window.currentViewDate = this.value; window.loadAttendance(); });
+    window.saveAttendance = function() { set(ref(db, 'attendance/' + window.currentViewDate), window.staffData); window.staffData.forEach(s => { if(!window.allStaffDetails.find(m => m.name === s.name)) window.allStaffDetails.push({ name: s.name, branch: s.branch, weekOff: 'None' }); }); set(ref(db, 'staffDetails'), window.allStaffDetails); }
+    window.addStaff = function() { const name = document.getElementById('newStaffName').value.trim(); const branch = document.getElementById('newStaffBranch').value; if (name !== "") { window.allStaffDetails.push({ name: name, branch: branch, weekOff: 'None' }); window.staffData.push({ name: name, branch: branch, status: "Pending" }); document.getElementById('newStaffName').value = ''; window.saveAttendance(); } }
+    window.markStatus = function(index, status) { window.staffData[index].status = status; window.saveAttendance(); }
+    window.removeStaff = function(index) { if(confirm("Delete staff completely?")) { let name = window.staffData[index].name; window.staffData.splice(index, 1); window.allStaffDetails = window.allStaffDetails.filter(s => s.name !== name); window.saveAttendance(); } }
+
+    window.renderAttendanceTable = function() {
+      const tbody = document.getElementById('attendanceBody'); tbody.innerHTML = ''; let presentCount = 0;
+      if(window.staffData.length === 0) { tbody.innerHTML = '<tr><td colspan="5">No staff added yet.</td></tr>'; return; }
+      window.staffData.forEach((staff, index) => {
+        if(staff.status === "Present") presentCount++; const tr = document.createElement('tr');
+        let statusHtml = `<strong style="color: ${staff.status === 'Present' ? '#10b981' : staff.status === 'Absent' ? '#ef4444' : staff.status === 'Week Off' ? '#0ea5e9' : '#64748b'};">${staff.status} ${staff.status === 'Week Off' ? '🏝️' : ''}</strong>`;
+        tr.innerHTML = `<td><strong>${staff.name}</strong></td><td style="color: #64748b;">${staff.branch || 'Unassigned'}</td><td>${statusHtml}</td><td><button class="status-btn btn-present" onclick="markStatus(${index}, 'Present')">Present</button><button class="status-btn btn-absent" onclick="markStatus(${index}, 'Absent')">Absent</button><button class="status-btn btn-weekoff" onclick="markStatus(${index}, 'Week Off')">Week Off</button><button class="status-btn btn-reset" onclick="markStatus(${index}, 'Pending')">Reset</button></td><td><button style="border:none; background:none; color:#ef4444; cursor:pointer; font-weight: 600;" onclick="removeStaff(${index})">Delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('staffTotal').innerText = window.staffData.length; document.getElementById('staffPresent').innerText = presentCount;
+    }
+
+    window.updateWeekOff = function(index, day) { window.allStaffDetails[index].weekOff = day; set(ref(db, 'staffDetails'), window.allStaffDetails); }
+    window.renderCalendarTab = function() {
+      const assignBody = document.getElementById('calendarAssignmentBody'); assignBody.innerHTML = ''; document.querySelectorAll('.day-content').forEach(el => el.innerHTML = '');
+      if (!window.allStaffDetails || window.allStaffDetails.length === 0) { assignBody.innerHTML = '<tr><td colspan="3">No staff records found.</td></tr>'; return; }
+      const days = ["None", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      window.allStaffDetails.forEach((staff, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${staff.name}</strong></td><td style="color: #64748b;">${staff.branch}</td><td><select class="calendar-select" style="padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; width: 100%;" onchange="updateWeekOff(${index}, this.value)">${days.map(day => `<option value="${day}" ${staff.weekOff === day ? 'selected' : ''}>${day}</option>`).join('')}</select></td>`;
+        assignBody.appendChild(tr);
+        if (staff.weekOff && staff.weekOff !== "None") {
+          const gridDay = document.getElementById('day-' + staff.weekOff);
+          if (gridDay) { const tag = document.createElement('div'); tag.className = 'off-staff-tag'; tag.textContent = staff.name; gridDay.querySelector('.day-content').appendChild(tag); }
+        }
+      });
+    }
+
+    window.renderAdminPanel = function() {
+      const tbody = document.getElementById('adminUsersBody'); tbody.innerHTML = '';
+      for (const [userId, details] of Object.entries(window.systemUsers)) {
+        const tr = document.createElement('tr');
+        let roleBadge = details.role === 'admin' ? `<span style="background: #0f172a; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Admin</span>` : `<span style="background: #64748b; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Warehouse</span>`;
+        let deleteBtn = userId === 'admin' ? `<span style="color: #94a3b8; font-size: 12px; font-weight: 600;">Master Protected</span>` : `<button style="border:none; background:none; color:#ef4444; cursor:pointer; font-weight: 600;" onclick="deleteAccount('${userId}')">Revoke Access</button>`;
+        tr.innerHTML = `<td><strong>${userId}</strong></td><td>${details.name}</td><td><input type="text" value="${details.pass}" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100px;" onchange="updateAccountPassword('${userId}', this.value)"></td><td>${roleBadge}</td><td>${deleteBtn}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    window.createNewAccount = function() {
+      const id = document.getElementById('newAccountUsername').value.trim(); const name = document.getElementById('newAccountName').value.trim(); const pass = document.getElementById('newAccountPass').value.trim(); const role = document.getElementById('newAccountRole').value;
+      if (!id || !name || !pass) { alert("Please fill out all fields."); return; }
+      if (window.systemUsers[id]) { alert("Login ID exists!"); return; }
+      window.systemUsers[id] = { name: name, pass: pass, role: role }; set(ref(db, 'users'), window.systemUsers);
+      document.getElementById('newAccountUsername').value = ''; document.getElementById('newAccountName').value = ''; document.getElementById('newAccountPass').value = '';
+    }
+    window.updateAccountPassword = function(userId, newPass) { if(newPass.trim() !== "") { window.systemUsers[userId].pass = newPass; set(ref(db, 'users'), window.systemUsers); alert(`Password for ${userId} updated!`); } }
+    window.deleteAccount = function(userId) { if(confirm(`Revoke access for ${userId}?`)) { delete window.systemUsers[userId]; set(ref(db, 'users'), window.systemUsers); } }
+  </script>
+</body>
+</html>
